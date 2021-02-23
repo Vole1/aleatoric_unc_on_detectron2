@@ -12,7 +12,6 @@ from detectron2.structures import Boxes
 # 1000px box (based on a small anchor, 16px, and a typical image size, 1000px).
 _DEFAULT_SCALE_CLAMP = math.log(1000.0 / 16)
 
-
 __all__ = ["Box2BoxTransform", "Box2BoxTransformRotated"]
 
 
@@ -25,7 +24,7 @@ class Box2BoxTransform(object):
     """
 
     def __init__(
-        self, weights: Tuple[float, float, float, float], scale_clamp: float = _DEFAULT_SCALE_CLAMP
+            self, weights: Tuple[float, float, float, float], scale_clamp: float = _DEFAULT_SCALE_CLAMP
     ):
         """
         Args:
@@ -126,9 +125,9 @@ class Box2BoxTransformRotated(object):
     """
 
     def __init__(
-        self,
-        weights: Tuple[float, float, float, float, float],
-        scale_clamp: float = _DEFAULT_SCALE_CLAMP,
+            self,
+            weights: Tuple[float, float, float, float, float],
+            scale_clamp: float = _DEFAULT_SCALE_CLAMP,
     ):
         """
         Args:
@@ -227,13 +226,14 @@ class Box2BoxTransformRotated(object):
 
 
 def _dense_box_regression_loss(
-    anchors: List[Boxes],
-    box2box_transform: Box2BoxTransform,
-    pred_anchor_deltas: List[torch.Tensor],
-    gt_boxes: List[torch.Tensor],
-    fg_mask: torch.Tensor,
-    box_reg_loss_type="smooth_l1",
-    smooth_l1_beta=0.0,
+        smooth_l1_s,
+        anchors: List[Boxes],
+        box2box_transform: Box2BoxTransform,
+        pred_anchor_deltas: List[torch.Tensor],
+        gt_boxes: List[torch.Tensor],
+        fg_mask: torch.Tensor,
+        box_reg_loss_type="smooth_l1",
+        smooth_l1_beta=0.0
 ):
     """
     Compute loss for dense multi-level box regression.
@@ -252,7 +252,8 @@ def _dense_box_regression_loss(
     if box_reg_loss_type == "smooth_l1":
         gt_anchor_deltas = [box2box_transform.get_deltas(anchors, k) for k in gt_boxes]
         gt_anchor_deltas = torch.stack(gt_anchor_deltas)  # (N, R, 4)
-        loss_box_reg = smooth_l1_loss(
+        loss_box_reg = _smooth_l1_loss(
+            smooth_l1_s,
             cat(pred_anchor_deltas, dim=1)[fg_mask],
             gt_anchor_deltas[fg_mask],
             beta=smooth_l1_beta,
@@ -268,3 +269,38 @@ def _dense_box_regression_loss(
     else:
         raise ValueError(f"Invalid dense box regression loss type '{box_reg_loss_type}'")
     return loss_box_reg
+
+
+def _smooth_l1_loss(
+        smooth_l1_s,
+        input: torch.Tensor,
+        target: torch.Tensor,
+        beta: float,  # beta = 1/sigma^2
+        reduction: str = "none"
+) -> torch.Tensor:
+    if beta < 1e-5:
+        # if beta == 0, then torch.where will result in nan gradients when
+        # the chain rule is applied due to pytorch implementation details
+        # (the False branch "0.5 * n ** 2 / 0" has an incoming gradient of
+        # zeros, rather than "no gradient"). To avoid this issue, we define
+        # small values of beta to be exactly l1 loss.
+        loss = torch.abs(input - target) / \
+               2 * torch.exp(torch.pow(smooth_l1_s, 2)) + \
+               0.5 * torch.pow(smooth_l1_s, 2)
+    else:
+        n = torch.abs(input - target)
+        cond = n < beta
+        factor = 1.0 / (4.0 * torch.exp(smooth_l1_s * smooth_l1_s))
+        loss = torch.where(cond,
+                           factor * n ** 2 / beta + 0.5 * torch.pow(smooth_l1_s, 2),
+
+                           torch.sqrt(2) * n / torch.sqrt(torch.exp(torch.pow(smooth_l1_s, 2))) - \
+                           torch.sqrt(2 / torch.exp(torch.pow(smooth_l1_s, 2))) * beta + \
+                           factor * beta + 0.5 * torch.pow(smooth_l1_s, 2)
+                           )
+
+    if reduction == "mean":
+        loss = loss.mean() if loss.numel() > 0 else 0.0 * loss.sum()
+    elif reduction == "sum":
+        loss = loss.sum()
+    return loss

@@ -149,6 +149,12 @@ class RetinaNet(nn.Module):
         self.loss_normalizer = 100  # initialize with any reasonable #fg that's not too small
         self.loss_normalizer_momentum = 0.9
 
+        if self.training:
+            self.focal_s = torch.nn.Parameter(torch.ones(1))
+            self.smooth_l1_s = torch.nn.Parameter(torch.ones(1))
+            self.register_parameter(name="focal_s", param=self.focal_s)
+            self.register_parameter(name="smooth_l1_s", param=self.smooth_l1_s)
+
     @classmethod
     def from_config(cls, cfg):
         backbone = build_backbone(cfg)
@@ -258,6 +264,9 @@ class RetinaNet(nn.Module):
             assert "instances" in batched_inputs[0], "Instance annotations are missing in training!"
             gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
 
+            get_event_storage().put_scalar("focal_sigma", self.focal_s)
+            get_event_storage().put_scalar("smooth_l1_sigma", self.smooth_l1_s)
+
             gt_labels, gt_boxes = self.label_anchors(anchors, gt_instances)
             losses = self.losses(anchors, pred_logits, gt_labels, pred_anchor_deltas, gt_boxes)
 
@@ -316,7 +325,7 @@ class RetinaNet(nn.Module):
         gt_labels_target = F.one_hot(gt_labels[valid_mask], num_classes=self.num_classes + 1)[
             :, :-1
         ]  # no loss for the last (background) class
-        loss_cls = sigmoid_focal_loss_jit(
+        loss_cls = self._focal_loss(
             cat(pred_logits, dim=1)[valid_mask],
             gt_labels_target.to(pred_logits[0].dtype),
             alpha=self.focal_loss_alpha,
@@ -325,6 +334,7 @@ class RetinaNet(nn.Module):
         )
 
         loss_box_reg = _dense_box_regression_loss(
+            self.smooth_l1_s,
             anchors,
             self.box2box_transform,
             pred_anchor_deltas,
@@ -338,6 +348,33 @@ class RetinaNet(nn.Module):
             "loss_cls": loss_cls / self.loss_normalizer,
             "loss_box_reg": loss_box_reg / self.loss_normalizer,
         }
+
+    def _focal_loss(self, inputs: Tensor,
+                    targets: Tensor, alpha: float = -1,
+                    gamma: float = 2,
+                    reduction: str = "none",
+                    ) -> torch.Tensor:
+        p = torch.sigmoid(inputs)
+        ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none") * torch.exp(
+            -torch.pow(self.focal_s, 2)
+        ) + torch.pow(self.focal_s, 2) / 2
+
+        p_t = p * targets + (1 - p) * (1 - targets)
+        loss = ce_loss * ((1 - p_t * torch.exp(
+            -1.5 * torch.pow(self.focal_s, 2)
+        )) ** gamma)
+
+        if alpha >= 0:
+            alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
+            loss = alpha_t * loss
+
+        if reduction == "mean":
+            loss = loss.mean()
+        elif reduction == "sum":
+            loss = loss.sum()
+
+        return loss
+
 
     @torch.no_grad()
     def label_anchors(self, anchors, gt_instances):
