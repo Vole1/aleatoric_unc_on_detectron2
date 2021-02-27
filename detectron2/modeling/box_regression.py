@@ -1,8 +1,9 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 import math
 from typing import List, Tuple
+
 import torch
-from fvcore.nn import giou_loss, smooth_l1_loss
+from fvcore.nn import giou_loss
 
 from detectron2.layers import cat
 from detectron2.structures import Boxes
@@ -292,10 +293,16 @@ def _smooth_l1_loss(
         loss = torch.where(cond,
                            factor * n ** 2 / beta + 0.5 * smooth_l1_s,
 
-                           torch.sqrt(2) * n / torch.sqrt(torch.exp(smooth_l1_s)) - \
-                           torch.sqrt(2 / torch.exp(smooth_l1_s)) * beta + \
-                           factor * beta + 0.5 * smooth_l1_s
+                           -1 / beta * torch.log(
+                               1 - torch.erf(
+                                   beta / torch.sqrt(2 * smooth_l1_s)
+                               )
+                           ) * n - torch.log(
+                               -1 / beta * torch.log(
+                                   1 - torch.erf(beta / torch.sqrt(2 * smooth_l1_s))
+                               )
                            )
+                        )
 
     if reduction == "mean":
         loss = loss.mean() if loss.numel() > 0 else 0.0 * loss.sum()
