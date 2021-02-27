@@ -334,7 +334,7 @@ class RetinaNet(nn.Module):
         )
 
         loss_box_reg = _dense_box_regression_loss(
-            self.smooth_l1_s,
+            torch.clamp(self.smooth_l1_s, 0.0, 1.0),
             anchors,
             self.box2box_transform,
             pred_anchor_deltas,
@@ -355,14 +355,11 @@ class RetinaNet(nn.Module):
                     reduction: str = "none",
                     ) -> torch.Tensor:
         p = torch.sigmoid(inputs)
-        ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none") * torch.exp(
-            -torch.pow(self.focal_s, 2)
-        ) + torch.pow(self.focal_s, 2) / 2
+        focal_s = torch.clamp(self.focal_s, 0.0, 1.0)
+        ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none") * torch.exp(-focal_s) + focal_s / 2
 
         p_t = p * targets + (1 - p) * (1 - targets)
-        loss = ce_loss * ((1 - p_t * torch.exp(
-            -1.5 * torch.pow(self.focal_s, 2)
-        )) ** gamma)
+        loss = ce_loss * ((1 - p_t * torch.exp(-1.5 * focal_s)) ** gamma)
 
         if alpha >= 0:
             alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
