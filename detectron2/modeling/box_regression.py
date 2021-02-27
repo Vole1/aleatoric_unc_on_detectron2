@@ -285,13 +285,13 @@ def _smooth_l1_loss(
         # (the False branch "0.5 * n ** 2 / 0" has an incoming gradient of
         # zeros, rather than "no gradient"). To avoid this issue, we define
         # small values of beta to be exactly l1 loss.
-        loss = torch.abs(input - target) / (2 * torch.exp(smooth_l1_s)) + 0.5 * smooth_l1_s
+        loss = torch.abs(input - target) / (2 * torch.exp(smooth_l1_s ** 2)) + 0.5 * (smooth_l1_s ** 2)
     else:
         n = torch.abs(input - target)
         cond = n < beta
-        factor = 1.0 / (4.0 * torch.exp(smooth_l1_s))
+        factor = 1.0 / (4.0 * torch.exp((smooth_l1_s ** 2)))
         loss = torch.where(cond,
-                           factor * n ** 2 / beta + 0.5 * smooth_l1_s,
+                           factor * n ** 2 / beta + 0.5 * (smooth_l1_s ** 2),
 
                            -1 / beta * torch.log(
                                1 - torch.erf(
