@@ -7,6 +7,8 @@ from fvcore.nn import giou_loss, smooth_l1_loss
 from detectron2.layers import cat
 from detectron2.structures import Boxes
 
+import numpy as np
+
 # Value for clamping large dw and dh predictions. The heuristic is that we clamp
 # such that dw and dh are no larger than what would transform a 16px box into a
 # 1000px box (based on a small anchor, 16px, and a typical image size, 1000px).
@@ -272,7 +274,7 @@ def _dense_box_regression_loss(
 
 
 def _smooth_l1_loss(
-        smooth_l1_s,
+        smooth_l1_s: torch.Tensor,
         input: torch.Tensor,
         target: torch.Tensor,
         beta: float,  # beta = 1/sigma^2
@@ -291,8 +293,7 @@ def _smooth_l1_loss(
         factor = 1.0 / (4.0 * torch.exp((smooth_l1_s ** 2)))
         loss = torch.where(cond,
                            factor * n ** 2 / beta + 0.5 * (smooth_l1_s ** 2),
-
-                           torch.sqrt(2) * n / torch.sqrt(torch.exp((smooth_l1_s ** 2))) - \
+                           np.sqrt(2.0) * n / torch.sqrt(torch.exp((smooth_l1_s ** 2))) - \
                            torch.sqrt(2 / torch.exp((smooth_l1_s ** 2))) * beta + \
                            factor * beta + 0.5 * (smooth_l1_s ** 2)
                            )
