@@ -266,7 +266,7 @@ class CommonMetricPrinter(EventWriter):
                 ),
                 sigmas="  ".join(
                     [
-                        "{}: {:.4g}".format(k, v.median(self._window_size))
+                        "{}: {:.4g}".format(k, v.median(1))
                         for k, v in storage.histories().items()
                         if "sigma" in k
                     ]
