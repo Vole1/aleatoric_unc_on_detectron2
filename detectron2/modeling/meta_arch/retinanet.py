@@ -365,7 +365,7 @@ class RetinaNet(nn.Module):
         if alpha >= 0:
             alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
             loss = alpha_t * loss
-            loss_correction = alpha * loss_correction
+            loss_correction = alpha_t * loss_correction
 
         loss = loss - loss_correction
 
