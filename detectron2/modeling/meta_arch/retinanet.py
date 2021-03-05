@@ -367,7 +367,7 @@ class RetinaNet(nn.Module):
             loss = alpha_t * loss
             loss_correction = alpha * loss_correction
 
-        loss = loss - loss_correction
+        loss = loss - loss_correction + focal_s ** 2
 
         if reduction == "mean":
             loss = loss.mean()
