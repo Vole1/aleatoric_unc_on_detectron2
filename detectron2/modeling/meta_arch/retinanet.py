@@ -1,10 +1,10 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 import logging
 import math
-import numpy as np
 from typing import Dict, List, Tuple
+
+import numpy as np
 import torch
-from fvcore.nn import sigmoid_focal_loss_jit
 from torch import Tensor, nn
 from torch.nn import functional as F
 
@@ -13,13 +13,12 @@ from detectron2.data.detection_utils import convert_image_to_rgb
 from detectron2.layers import ShapeSpec, batched_nms, cat, get_norm, nonzero_tuple
 from detectron2.structures import Boxes, ImageList, Instances, pairwise_iou
 from detectron2.utils.events import get_event_storage
-
+from .build import META_ARCH_REGISTRY
 from ..anchor_generator import build_anchor_generator
 from ..backbone import build_backbone
 from ..box_regression import Box2BoxTransform, _dense_box_regression_loss
 from ..matcher import Matcher
 from ..postprocessing import detector_postprocess
-from .build import META_ARCH_REGISTRY
 
 __all__ = ["RetinaNet"]
 
@@ -334,7 +333,7 @@ class RetinaNet(nn.Module):
         )
 
         loss_box_reg = _dense_box_regression_loss(
-            torch.clamp(self.smooth_l1_s, -2.0, 2.0),
+            self.smooth_l1_s,
             anchors,
             self.box2box_transform,
             pred_anchor_deltas,
@@ -355,15 +354,21 @@ class RetinaNet(nn.Module):
                     reduction: str = "none",
                     ) -> torch.Tensor:
         p = torch.sigmoid(inputs)
-        focal_s = torch.clamp(self.focal_s, -2.0, 2.0)
-        ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none") * torch.exp(-(focal_s ** 2)) + (focal_s ** 2) / 2
+        focal_s = self.focal_s
+        ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none") * torch.exp(
+            -focal_s) + focal_s / 2
 
         p_t = p * targets + (1 - p) * (1 - targets)
-        loss = ce_loss * ((1 - p_t * torch.exp(-1.5 * (focal_s ** 2))) ** gamma)
+        loss = ce_loss * ((1 - p_t * torch.exp(-1.5 * focal_s)) ** gamma)
+
+        loss_correction = focal_s / 2 * (1 - torch.exp(-1.5 * focal_s)) ** gamma
 
         if alpha >= 0:
             alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
             loss = alpha_t * loss
+            loss_correction = alpha * loss_correction
+
+        loss = loss - loss_correction
 
         if reduction == "mean":
             loss = loss.mean()
