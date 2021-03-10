@@ -354,20 +354,21 @@ class RetinaNet(nn.Module):
                     reduction: str = "none",
                     ) -> torch.Tensor:
         p = torch.sigmoid(inputs)
-        focal_s = torch.clamp(self.focal_s, -2.0, 2.0)
+        # focal_s = torch.clamp(self.focal_s, -2.0, 2.0)
+        focal_s = self.focal_s
         ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none") * torch.exp(-focal_s) + focal_s / 2
 
         p_t = p * targets + (1 - p) * (1 - targets)
-        loss = ce_loss * ((1 - p_t * torch.exp(-1.5 * focal_s)) ** gamma)
+        loss = ce_loss * ((1 - p_t) ** gamma)
 
-        loss_correction = focal_s / 2 * (1 - torch.exp(-1.5 * focal_s)) ** gamma
+        # loss_correction = focal_s / 2 * (1 - torch.exp(-1.5 * focal_s)) ** gamma
 
         if alpha >= 0:
             alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
             loss = alpha_t * loss
-            loss_correction = alpha_t * loss_correction
+            # loss_correction = alpha_t * loss_correction
 
-        loss = loss - loss_correction
+        # loss = loss - loss_correction
 
         if reduction == "mean":
             loss = loss.mean()
