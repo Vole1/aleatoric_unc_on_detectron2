@@ -236,7 +236,7 @@ class SimpleTrainer(TrainerBase):
 
         if not np.isfinite(losses):
             self.logger.warning(
-                f"Loss became infinite or NaN at iteration={self.iter}!\n"
+                f"Loss became infinite or NaN at iteration={self.iter}! skip this step\n"
                 f"loss_dict = {loss_dict}"
             )
             return
