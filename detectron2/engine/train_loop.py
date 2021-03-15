@@ -201,6 +201,8 @@ class SimpleTrainer(TrainerBase):
         """
         super().__init__()
 
+        self.logger = logging.getLogger(__name__)
+
         """
         We set the model to training mode in the trainer.
         However it's valid to train a model that's in eval mode.
@@ -231,6 +233,13 @@ class SimpleTrainer(TrainerBase):
         """
         loss_dict = self.model(data)
         losses = sum(loss_dict.values())
+
+        if not np.isfinite(losses):
+            self.logger.warning(
+                f"Loss became infinite or NaN at iteration={self.iter}!\n"
+                f"loss_dict = {loss_dict}"
+            )
+            return
 
         """
         If you need to accumulate gradients or do something similar, you can
