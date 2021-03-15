@@ -333,7 +333,7 @@ class RetinaNet(nn.Module):
         )
 
         loss_box_reg = _dense_box_regression_loss(
-            self.smooth_l1_s,
+            torch.clamp(self.smooth_l1_s, -50, 50),
             anchors,
             self.box2box_transform,
             pred_anchor_deltas,
