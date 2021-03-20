@@ -139,6 +139,8 @@ class RetinaNet(nn.Module):
         self.register_buffer("pixel_mean", torch.Tensor(pixel_mean).view(-1, 1, 1))
         self.register_buffer("pixel_std", torch.Tensor(pixel_std).view(-1, 1, 1))
 
+        self.logger = logging.getLogger(__name__)
+
         """
         In Detectron1, loss is normalized by number of foreground samples in the batch.
         When batch size is 1 per GPU, #foreground has a large variance and
@@ -319,6 +321,7 @@ class RetinaNet(nn.Module):
         self.loss_normalizer = self.loss_normalizer_momentum * self.loss_normalizer + (
             1 - self.loss_normalizer_momentum
         ) * max(num_pos_anchors, 1)
+        self.logger.info(f"loss_normalizer: {self.loss_normalizer}")
         get_event_storage().put_scalar("loss_normalizer", self.loss_normalizer)
 
         # classification and regression loss
