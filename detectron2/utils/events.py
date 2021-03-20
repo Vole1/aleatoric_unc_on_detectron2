@@ -268,7 +268,7 @@ class CommonMetricPrinter(EventWriter):
                     [
                         "{}: {:.4g}".format(k, v.median(1))
                         for k, v in storage.histories().items()
-                        if "sigma" in k
+                        if "sigma" in k or "loss_normalizer" in k
                     ]
                 ),
                 time="time: {:.4f}  ".format(iter_time) if iter_time is not None else "",

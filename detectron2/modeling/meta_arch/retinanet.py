@@ -319,6 +319,7 @@ class RetinaNet(nn.Module):
         self.loss_normalizer = self.loss_normalizer_momentum * self.loss_normalizer + (
             1 - self.loss_normalizer_momentum
         ) * max(num_pos_anchors, 1)
+        get_event_storage().put_scalar("loss_normalizer", self.loss_normalizer)
 
         # classification and regression loss
         gt_labels_target = F.one_hot(gt_labels[valid_mask], num_classes=self.num_classes + 1)[
@@ -375,7 +376,7 @@ class RetinaNet(nn.Module):
         elif reduction == "sum":
             loss = loss.sum()
 
-        return loss
+        return torch.clamp(loss, 0.0)
 
 
     @torch.no_grad()
