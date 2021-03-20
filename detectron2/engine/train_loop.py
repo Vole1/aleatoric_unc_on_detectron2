@@ -307,6 +307,7 @@ class SimpleTrainer(TrainerBase):
             metrics_dict = {
                 k: np.mean([x[k] for x in all_metrics_dict]) for k in all_metrics_dict[0].keys()
             }
+            self.logger.info(f"metrics_dict={metrics_dict}")
             total_losses_reduced = sum(metrics_dict.values())
             if not np.isfinite(total_losses_reduced):
                 self.logger.error("Not skipped step with loss=NaN")
