@@ -321,7 +321,7 @@ class RetinaNet(nn.Module):
         self.loss_normalizer = self.loss_normalizer_momentum * self.loss_normalizer + (
             1 - self.loss_normalizer_momentum
         ) * max(num_pos_anchors, 1)
-        self.logger.info(f"loss_normalizer: {self.loss_normalizer}")
+        # self.logger.info(f"loss_normalizer: {self.loss_normalizer}")
         get_event_storage().put_scalar("loss_normalizer", self.loss_normalizer)
 
         # classification and regression loss
@@ -358,7 +358,7 @@ class RetinaNet(nn.Module):
                     reduction: str = "none",
                     ) -> torch.Tensor:
         p = torch.sigmoid(inputs)
-        focal_s = torch.clamp(self.focal_s, 0.0, 2.0)
+        focal_s = torch.clamp(self.focal_s, -0.5, 3.0)
         # focal_s = self.focal_s
         ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none") * torch.exp(-focal_s) + focal_s / 2
 
