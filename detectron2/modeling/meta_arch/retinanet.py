@@ -322,7 +322,7 @@ class RetinaNet(nn.Module):
             1 - self.loss_normalizer_momentum
         ) * max(num_pos_anchors, 1)
         # self.logger.info(f"loss_normalizer: {self.loss_normalizer}")
-        get_event_storage().put_scalar("loss_normalizer", self.loss_normalizer)
+        # get_event_storage().put_scalar("loss_normalizer", self.loss_normalizer)
 
         # classification and regression loss
         gt_labels_target = F.one_hot(gt_labels[valid_mask], num_classes=self.num_classes + 1)[
@@ -363,7 +363,9 @@ class RetinaNet(nn.Module):
         ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none") * torch.exp(-focal_s) + focal_s / 2
 
         p_t = p * targets + (1 - p) * (1 - targets)
-        loss = ce_loss * ((1 - p_t) ** (gamma * torch.exp(-focal_s))) * torch.exp(-0.5 * focal_s)
+        loss = ce_loss * ((1 - p_t) ** (gamma * torch.exp(-focal_s)))
+
+        # loss = loss * torch.exp(-0.5 * focal_s)
 
         # loss_correction = focal_s / 2 * (1 - torch.exp(-1.5 * focal_s)) ** gamma
 
