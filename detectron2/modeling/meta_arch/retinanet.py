@@ -365,7 +365,7 @@ class RetinaNet(nn.Module):
         p_t = p * targets + (1 - p) * (1 - targets)
         loss = ce_loss * ((1 - p_t) ** (gamma * torch.exp(-focal_s)))
 
-        # loss = loss * torch.exp(-0.5 * focal_s)
+        loss = loss * torch.exp(-0.5 * focal_s)
 
         # loss_correction = focal_s / 2 * (1 - torch.exp(-1.5 * focal_s)) ** gamma
 
