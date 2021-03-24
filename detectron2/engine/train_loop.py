@@ -12,6 +12,8 @@ from torch.nn.parallel import DataParallel, DistributedDataParallel
 import detectron2.utils.comm as comm
 from detectron2.utils.events import EventStorage, get_event_storage
 
+from collections import deque
+
 __all__ = ["HookBase", "TrainerBase", "SimpleTrainer", "AMPTrainer"]
 
 
@@ -216,6 +218,8 @@ class SimpleTrainer(TrainerBase):
         self._data_loader_iter = iter(data_loader)
         self.optimizer = optimizer
 
+        self.grads = deque()
+
     def run_step(self):
         """
         Implement the standard training logic described above.
@@ -260,7 +264,16 @@ class SimpleTrainer(TrainerBase):
         #         )
         #         return
 
-        """
+        current_gradient = []
+        for group in self.optimizer.param_groups:
+            for p in group['params']:
+                if p.grad is not None:
+                    current_gradient.append(p.grad.detach().to('cpu').numpy())
+        if current_gradient:
+            self.grads.appendleft(current_gradient)
+        if self.grads.__sizeof__() > 50:
+            self.grads.pop()
+        """ 
         If you need to accumulate gradients or do something similar, you can
         wrap the optimizer with your custom `zero_grad()` method.
         """
@@ -311,6 +324,7 @@ class SimpleTrainer(TrainerBase):
             total_losses_reduced = sum(metrics_dict.values())
             if not np.isfinite(total_losses_reduced):
                 self.logger.error("Not skipped step with loss=NaN")
+                self.logger.info(f"Pref gradients: {self.grads}")
                 raise FloatingPointError(
                     f"Loss became infinite or NaN at iteration={self.iter}!\n"
                     f"loss_dict = {metrics_dict}"
