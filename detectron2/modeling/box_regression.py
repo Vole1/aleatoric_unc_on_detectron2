@@ -279,6 +279,11 @@ def _smooth_l1_loss(
         beta: float,  # beta = 1/sigma^2
         reduction: str = "none"
 ) -> torch.Tensor:
+    import logging
+    import numpy as np
+    logger = logging.getLogger(__name__)
+    logger.debug(f"inputs: {input.detach().to('cpu').numpy()}, targets: {target.detach().to('cpu').numpy()}, smooth_l1_s: {smooth_l1_s.detach().to('cpu').numpy()}")
+
     if beta < 1e-5:
         # if beta == 0, then torch.where will result in nan gradients when
         # the chain rule is applied due to pytorch implementation details

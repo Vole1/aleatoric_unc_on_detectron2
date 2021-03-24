@@ -155,6 +155,7 @@ class RetinaNet(nn.Module):
             self.smooth_l1_s = torch.nn.Parameter(torch.ones(1))
             self.register_parameter(name="focal_s", param=self.focal_s)
             self.register_parameter(name="smooth_l1_s", param=self.smooth_l1_s)
+            np.set_printoptions(threshold=np.inf)
 
     @classmethod
     def from_config(cls, cfg):
@@ -358,6 +359,7 @@ class RetinaNet(nn.Module):
                     reduction: str = "none",
                     ) -> torch.Tensor:
         p = torch.sigmoid(inputs)
+        self.logger.debug(f"inputs: {p.detach().to('cpu').numpy()}, targets: {targets.detach().to('cpu').numpy()}, focal_s: {self.focal_s.detach().to('cpu').numpy()}")
         focal_s = torch.clamp(self.focal_s, 0.0, 1.0)
         # focal_s = self.focal_s
         ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none") * torch.exp(-focal_s) + focal_s / 2
