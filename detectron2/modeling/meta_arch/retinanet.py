@@ -359,7 +359,6 @@ class RetinaNet(nn.Module):
                     reduction: str = "none",
                     ) -> torch.Tensor:
         p = torch.sigmoid(inputs)
-        self.logger.debug(f"inputs: {p.detach().to('cpu').numpy()}, targets: {targets.detach().to('cpu').numpy()}, focal_s: {self.focal_s.detach().to('cpu').numpy()}")
         focal_s = torch.clamp(self.focal_s, 0.0, 1.0)
         # focal_s = self.focal_s
         ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none") * torch.exp(-focal_s) + focal_s / 2
@@ -382,6 +381,9 @@ class RetinaNet(nn.Module):
             loss = loss.mean()
         elif reduction == "sum":
             loss = loss.sum()
+
+        if not np.isfinite(np.mean(loss.detach().cpu().item())):
+            self.logger.debug(f"inputs: {p.detach().to('cpu').numpy()}, targets: {targets.detach().to('cpu').numpy()}, focal_s: {self.focal_s.detach().to('cpu').numpy()}")
 
         return torch.clamp(loss, 0.0)
 

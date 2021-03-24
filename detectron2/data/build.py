@@ -51,6 +51,9 @@ def filter_images_with_only_crowd_annotations(dataset_dicts):
 
     def valid(anns):
         for ann in anns:
+            if ann['bbox'][2] < 1 or ann['bbox'][3] < 1:
+                return False
+        for ann in anns:
             if ann.get("iscrowd", 0) == 0:
                 return True
         return False

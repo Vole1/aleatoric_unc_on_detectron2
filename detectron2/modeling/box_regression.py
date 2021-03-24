@@ -8,6 +8,8 @@ from fvcore.nn import giou_loss
 from detectron2.layers import cat
 from detectron2.structures import Boxes
 
+import numpy as np
+
 # Value for clamping large dw and dh predictions. The heuristic is that we clamp
 # such that dw and dh are no larger than what would transform a 16px box into a
 # 1000px box (based on a small anchor, 16px, and a typical image size, 1000px).
@@ -279,10 +281,6 @@ def _smooth_l1_loss(
         beta: float,  # beta = 1/sigma^2
         reduction: str = "none"
 ) -> torch.Tensor:
-    import logging
-    import numpy as np
-    logger = logging.getLogger(__name__)
-    logger.debug(f"inputs: {input.detach().to('cpu').numpy()}, targets: {target.detach().to('cpu').numpy()}, smooth_l1_s: {smooth_l1_s.detach().to('cpu').numpy()}")
 
     if beta < 1e-5:
         # if beta == 0, then torch.where will result in nan gradients when
@@ -314,4 +312,9 @@ def _smooth_l1_loss(
         loss = loss.mean() if loss.numel() > 0 else 0.0 * loss.sum()
     elif reduction == "sum":
         loss = loss.sum()
+
+    if not np.isfinite(np.mean(loss.detach().cpu().item())):
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug(f"inputs: {input.detach().to('cpu').numpy()}, targets: {target.detach().to('cpu').numpy()}, smooth_l1_s: {smooth_l1_s.detach().to('cpu').numpy()}")
     return loss
