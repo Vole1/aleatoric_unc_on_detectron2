@@ -271,7 +271,7 @@ class SimpleTrainer(TrainerBase):
                     current_gradient.append(p.grad.detach().to('cpu').numpy())
         if current_gradient:
             self.grads.appendleft(current_gradient)
-        if self.grads.__sizeof__() > 50:
+        if self.iter > 51:
             self.grads.pop()
         """ 
         If you need to accumulate gradients or do something similar, you can
