@@ -218,7 +218,7 @@ class SimpleTrainer(TrainerBase):
         self._data_loader_iter = iter(data_loader)
         self.optimizer = optimizer
 
-        self.grads = deque()
+        self.grads = []
 
     def run_step(self):
         """
@@ -270,9 +270,9 @@ class SimpleTrainer(TrainerBase):
                 if p.grad is not None:
                     current_gradient.append(p.grad.detach().to('cpu').numpy())
         if current_gradient:
-            self.grads.appendleft(current_gradient)
-        if self.iter > 25:
-            self.grads.pop()
+            self.grads.append(current_gradient)
+        if len(self.grads) > 20:
+            self.grads = self.grads[1:]
         """ 
         If you need to accumulate gradients or do something similar, you can
         wrap the optimizer with your custom `zero_grad()` method.
@@ -324,7 +324,8 @@ class SimpleTrainer(TrainerBase):
             total_losses_reduced = sum(metrics_dict.values())
             if not np.isfinite(total_losses_reduced):
                 self.logger.error("Not skipped step with loss=NaN")
-                self.logger.info(f"Pref gradients: {self.grads}")
+                for el in self.grads:
+                    self.logger.warning(f"{el}")
                 raise FloatingPointError(
                     f"Loss became infinite or NaN at iteration={self.iter}!\n"
                     f"loss_dict = {metrics_dict}"
