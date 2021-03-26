@@ -7,6 +7,7 @@ import numpy as np
 import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
+from fvcore.nn import sigmoid_focal_loss_jit
 
 from detectron2.config import configurable
 from detectron2.data.detection_utils import convert_image_to_rgb
@@ -329,7 +330,7 @@ class RetinaNet(nn.Module):
         gt_labels_target = F.one_hot(gt_labels[valid_mask], num_classes=self.num_classes + 1)[
             :, :-1
         ]  # no loss for the last (background) class
-        loss_cls = self._focal_loss(
+        loss_cls = sigmoid_focal_loss_jit(
             cat(pred_logits, dim=1)[valid_mask],
             gt_labels_target.to(pred_logits[0].dtype),
             alpha=self.focal_loss_alpha,
