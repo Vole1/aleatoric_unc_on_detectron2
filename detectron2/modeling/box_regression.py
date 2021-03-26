@@ -304,8 +304,7 @@ def _smooth_l1_loss(
                                1 - torch.erf(
                                    beta / torch.sqrt(2 * torch.exp(smooth_l1_s ** 2))
                                )
-                           ) + factor * (beta ** 2) + 0.5 * (smooth_l1_s ** 2)
-
+                           ) + factor * beta + 0.5 * (smooth_l1_s ** 2)
                         )
 
     if reduction == "mean":
