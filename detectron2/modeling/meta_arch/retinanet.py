@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
-from fvcore.nn import sigmoid_focal_loss_jit
+from fvcore.nn import sigmoid_focal_loss_jit, sigmoid_focal_loss
 
 from detectron2.config import configurable
 from detectron2.data.detection_utils import convert_image_to_rgb
@@ -642,6 +642,7 @@ def _focal_loss(focal_s, inputs: Tensor,
         # loss_correction = alpha_t * loss_correction
 
     # loss = loss - loss_correction
+    loss = loss + torch.pow(focal_s, 2) * sigmoid_focal_loss(inputs, targets, alpha, gamma, "none")
 
     if reduction == "mean":
         loss = loss.mean()
