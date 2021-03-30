@@ -642,7 +642,7 @@ def _focal_loss(focal_s, inputs: Tensor,
         # loss_correction = alpha_t * loss_correction
 
     # loss = loss - loss_correction
-    loss = loss + torch.pow(focal_s, 2)
+    # loss = loss + torch.pow(focal_s, 2)
 
     if reduction == "mean":
         loss = loss.mean()
@@ -654,4 +654,4 @@ def _focal_loss(focal_s, inputs: Tensor,
     #                       f"targets: {targets.detach().to('cpu').numpy()}, "
     #                       f"focal_s: {self.focal_s.detach().to('cpu').numpy()}")
 
-    return torch.clamp(loss, 0.0)
+    return torch.clamp(loss, 0.0) + torch.pow(focal_s, 2)
