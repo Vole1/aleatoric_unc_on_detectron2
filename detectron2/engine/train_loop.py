@@ -264,15 +264,15 @@ class SimpleTrainer(TrainerBase):
         #         )
         #         return
 
-        current_gradient = []
-        for group in self.optimizer.param_groups:
-            for p in group['params']:
-                if p.grad is not None:
-                    current_gradient.append(p.grad.detach().to('cpu').numpy())
-        if current_gradient:
-            self.grads.append(current_gradient)
-        if len(self.grads) > 20:
-            self.grads = self.grads[1:]
+        # current_gradient = []
+        # for group in self.optimizer.param_groups:
+        #     for p in group['params']:
+        #         if p.grad is not None:
+        #             current_gradient.append(p.grad.detach().to('cpu').numpy())
+        # if current_gradient:
+        #     self.grads.append(current_gradient)
+        # if len(self.grads) > 20:
+        #     self.grads = self.grads[1:]
         """ 
         If you need to accumulate gradients or do something similar, you can
         wrap the optimizer with your custom `zero_grad()` method.

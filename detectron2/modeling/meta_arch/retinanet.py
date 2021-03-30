@@ -330,7 +330,8 @@ class RetinaNet(nn.Module):
         gt_labels_target = F.one_hot(gt_labels[valid_mask], num_classes=self.num_classes + 1)[
             :, :-1
         ]  # no loss for the last (background) class
-        loss_cls = sigmoid_focal_loss_jit(
+        loss_cls = _focal_loss(
+            self.focal_s,
             cat(pred_logits, dim=1)[valid_mask],
             gt_labels_target.to(pred_logits[0].dtype),
             alpha=self.focal_loss_alpha,
@@ -353,42 +354,6 @@ class RetinaNet(nn.Module):
             "loss_cls": loss_cls / self.loss_normalizer,
             "loss_box_reg": loss_box_reg / self.loss_normalizer,
         }
-
-    def _focal_loss(self, inputs: Tensor,
-                    targets: Tensor, alpha: float = -1,
-                    gamma: float = 2,
-                    reduction: str = "none",
-                    ) -> torch.Tensor:
-        p = torch.sigmoid(inputs)
-        focal_s = torch.clamp(self.focal_s, 0.0, 1.0)
-        # focal_s = self.focal_s
-        ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none") * torch.exp(-focal_s) + focal_s / 2
-
-        p_t = p * targets + (1 - p) * (1 - targets)
-        loss = ce_loss * ((1 - p_t) ** (gamma * torch.exp(-focal_s)))
-
-        loss = loss * torch.exp(-0.5 * focal_s)
-
-        # loss_correction = focal_s / 2 * (1 - torch.exp(-1.5 * focal_s)) ** gamma
-
-        if alpha >= 0:
-            alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
-            loss = alpha_t * loss
-            # loss_correction = alpha_t * loss_correction
-
-        # loss = loss - loss_correction
-
-        if reduction == "mean":
-            loss = loss.mean()
-        elif reduction == "sum":
-            loss = loss.sum()
-
-        if not np.isfinite(np.mean(loss.detach().cpu().item())):
-            self.logger.debug(f"inputs: {p.detach().to('cpu').numpy()}, "
-                              f"targets: {targets.detach().to('cpu').numpy()}, "
-                              f"focal_s: {self.focal_s.detach().to('cpu').numpy()}")
-
-        return torch.clamp(loss, 0.0)
 
 
     @torch.no_grad()
@@ -654,3 +619,38 @@ class RetinaNetHead(nn.Module):
             logits.append(self.cls_score(self.cls_subnet(feature)))
             bbox_reg.append(self.bbox_pred(self.bbox_subnet(feature)))
         return logits, bbox_reg
+
+@torch.jit.script
+def _focal_loss(focal_s, inputs: Tensor,
+                targets: Tensor, alpha: float = -1,
+                gamma: float = 2,
+                reduction: str = "none",
+                ) -> torch.Tensor:
+    p = torch.sigmoid(inputs)
+    ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none") * torch.exp(-focal_s) + focal_s / 2
+
+    p_t = p * targets + (1 - p) * (1 - targets)
+    loss = ce_loss * ((1 - p_t) ** (gamma * torch.exp(-focal_s)))
+
+    loss = loss * torch.exp(-0.5 * focal_s)
+
+    # loss_correction = focal_s / 2 * (1 - torch.exp(-1.5 * focal_s)) ** gamma
+
+    if alpha >= 0:
+        alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
+        loss = alpha_t * loss
+        # loss_correction = alpha_t * loss_correction
+
+    # loss = loss - loss_correction
+
+    if reduction == "mean":
+        loss = loss.mean()
+    elif reduction == "sum":
+        loss = loss.sum()
+
+    # if not np.isfinite(np.mean(loss.detach().cpu().item())):
+    #     self.logger.debug(f"inputs: {p.detach().to('cpu').numpy()}, "
+    #                       f"targets: {targets.detach().to('cpu').numpy()}, "
+    #                       f"focal_s: {self.focal_s.detach().to('cpu').numpy()}")
+
+    return torch.clamp(loss, 0.0)

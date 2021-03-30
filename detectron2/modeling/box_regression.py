@@ -312,8 +312,8 @@ def _smooth_l1_loss(
     elif reduction == "sum":
         loss = loss.sum()
 
-    if not np.isfinite(np.mean(loss.detach().cpu().item())):
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.debug(f"inputs: {input.detach().to('cpu').numpy()}, targets: {target.detach().to('cpu').numpy()}, smooth_l1_s: {smooth_l1_s.detach().to('cpu').numpy()}")
+    # if not np.isfinite(np.mean(loss.detach().cpu().item())):
+    #     import logging
+    #     logger = logging.getLogger(__name__)
+    #     logger.debug(f"inputs: {input.detach().to('cpu').numpy()}, targets: {target.detach().to('cpu').numpy()}, smooth_l1_s: {smooth_l1_s.detach().to('cpu').numpy()}")
     return loss
