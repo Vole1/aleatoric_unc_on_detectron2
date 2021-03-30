@@ -642,7 +642,7 @@ def _focal_loss(focal_s, inputs: Tensor,
         # loss_correction = alpha_t * loss_correction
 
     # loss = loss - loss_correction
-    loss = loss + torch.pow(focal_s, 2) * sigmoid_focal_loss(inputs, targets, alpha, gamma, "none")
+    loss = loss + torch.pow(focal_s, 2)
 
     if reduction == "mean":
         loss = loss.mean()
