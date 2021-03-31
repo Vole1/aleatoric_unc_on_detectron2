@@ -654,4 +654,4 @@ def _focal_loss(focal_s, inputs: Tensor,
     #                       f"targets: {targets.detach().to('cpu').numpy()}, "
     #                       f"focal_s: {self.focal_s.detach().to('cpu').numpy()}")
 
-    return torch.clamp(loss, 0.0) + torch.pow(focal_s, 2)
+    return torch.clamp(loss, 0.0) #+ torch.pow(focal_s, 2)
