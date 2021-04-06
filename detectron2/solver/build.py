@@ -250,10 +250,10 @@ def build_lr_scheduler(
     else:
         raise ValueError("Unknown LR scheduler: {}".format(name))
 
-    # sched = WarmupParamScheduler(
-    #     sched,
-    #     cfg.SOLVER.WARMUP_FACTOR,
-    #     cfg.SOLVER.WARMUP_ITERS / cfg.SOLVER.MAX_ITER,
-    #     cfg.SOLVER.WARMUP_METHOD,
-    # )
+    sched = WarmupParamScheduler(
+        sched,
+        cfg.SOLVER.WARMUP_FACTOR,
+        cfg.SOLVER.WARMUP_ITERS / cfg.SOLVER.MAX_ITER,
+        cfg.SOLVER.WARMUP_METHOD,
+    )
     return LRMultiplier(optimizer, multiplier=sched, max_iter=cfg.SOLVER.MAX_ITER)
