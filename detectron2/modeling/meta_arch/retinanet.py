@@ -627,6 +627,7 @@ def _focal_loss(focal_s, inputs: Tensor,
                 reduction: str = "none",
                 ) -> torch.Tensor:
     p = torch.sigmoid(inputs)
+    focal_s = torch.clamp(focal_s, -1.0, 2.0)
     ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none") * torch.exp(-focal_s) + focal_s / 2
 
     p_t = p * targets + (1 - p) * (1 - targets)
