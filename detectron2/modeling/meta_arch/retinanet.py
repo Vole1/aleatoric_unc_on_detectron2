@@ -621,7 +621,7 @@ class RetinaNetHead(nn.Module):
             bbox_reg.append(self.bbox_pred(self.bbox_subnet(feature)))
         return logits, bbox_reg
 
-@torch.jit.script
+# @torch.jit.script
 def _focal_loss(focal_s, inputs: Tensor,
                 targets: Tensor, alpha: float = -1,
                 gamma: float = 2,
