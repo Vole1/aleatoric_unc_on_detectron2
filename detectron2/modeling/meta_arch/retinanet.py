@@ -23,6 +23,8 @@ from ..postprocessing import detector_postprocess
 
 __all__ = ["RetinaNet"]
 
+logger = logging.getLogger(__name__)
+
 
 def permute_to_N_HWA_K(tensor, K: int):
     """
@@ -140,7 +142,6 @@ class RetinaNet(nn.Module):
         self.register_buffer("pixel_mean", torch.Tensor(pixel_mean).view(-1, 1, 1))
         self.register_buffer("pixel_std", torch.Tensor(pixel_std).view(-1, 1, 1))
 
-        self.logger = logging.getLogger(__name__)
 
         """
         In Detectron1, loss is normalized by number of foreground samples in the batch.
@@ -627,7 +628,7 @@ def _focal_loss(focal_s, inputs: Tensor,
                 reduction: str = "none",
                 ) -> torch.Tensor:
     p = torch.sigmoid(inputs)
-    focal_s = torch.clamp(focal_s, -1.0, 2.0)
+    # focal_s = torch.clamp(focal_s, -1.0, 2.0)
     ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none") * torch.exp(-focal_s) + focal_s / 2
 
     p_t = p * targets + (1 - p) * (1 - targets)
@@ -648,9 +649,8 @@ def _focal_loss(focal_s, inputs: Tensor,
     elif reduction == "sum":
         loss = loss.sum()
 
-    # if not np.isfinite(np.mean(loss.detach().cpu().item())):
-    #     self.logger.debug(f"inputs: {p.detach().to('cpu').numpy()}, "
-    #                       f"targets: {targets.detach().to('cpu').numpy()}, "
-    #                       f"focal_s: {self.focal_s.detach().to('cpu').numpy()}")
+    if not np.isfinite(np.mean(loss.detach().cpu().item())):
+        logger.debug(f"focal_s: {focal_s.detach().to('cpu').numpy()},"
+                     f"focal_s_grad: {focal_s.grad.detach.to('cpu').numpy()}")
 
     return loss #+ torch.pow(focal_s, 2)
