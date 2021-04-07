@@ -153,7 +153,7 @@ class RetinaNet(nn.Module):
         self.loss_normalizer_momentum = 0.9
 
         if self.training:
-            self.focal_s = torch.nn.Parameter(torch.ones(1, dtype=torch.float32))
+            self.focal_s = torch.nn.Parameter(torch.zeros(1, dtype=torch.float32))
             self.smooth_l1_s = torch.nn.Parameter(torch.ones(1, dtype=torch.float32))
             self.register_parameter(name="focal_s", param=self.focal_s)
             self.register_parameter(name="smooth_l1_s", param=self.smooth_l1_s)
