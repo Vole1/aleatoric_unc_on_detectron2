@@ -292,7 +292,7 @@ def _smooth_l1_loss(
     else:
         n = torch.abs(input - target)
         cond = n < beta
-        factor = 1.0 / (4.0 * torch.exp(smooth_l1_s))
+        factor = 1.0 / (2.0 * torch.exp(smooth_l1_s))
         loss = torch.where(cond,
                            factor * n ** 2 / beta + 0.5 * smooth_l1_s,
 
