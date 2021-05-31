@@ -621,7 +621,7 @@ class RetinaNetHead(nn.Module):
             bbox_reg.append(self.bbox_pred(self.bbox_subnet(feature)))
         return logits, bbox_reg
 
-# @torch.jit.script
+@torch.jit.script
 def _focal_loss(focal_s, inputs: Tensor,
                 targets: Tensor, alpha: float = -1,
                 gamma: float = 2,
@@ -648,10 +648,10 @@ def _focal_loss(focal_s, inputs: Tensor,
         loss = loss.mean()
     elif reduction == "sum":
         loss = loss.sum()
-
-    if not np.isfinite(np.mean(loss.detach().cpu().item())):
-    # if (focal_s.grad is not None):
-        logger.debug(f"focal_s: {focal_s.detach().cpu().numpy()},"
-                     f"focal_s_grad: {focal_s.grad.detach().to('cpu').numpy()}")
+    #
+    # if not np.isfinite(np.mean(loss.detach().cpu().item())):
+    # # if (focal_s.grad is not None):
+    #     logger.debug(f"focal_s: {focal_s.detach().cpu().numpy()},"
+    #                  f"focal_s_grad: {focal_s.grad.detach().to('cpu').numpy()}")
 
     return loss #+ torch.pow(focal_s, 2)

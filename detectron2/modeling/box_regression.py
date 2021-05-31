@@ -273,7 +273,7 @@ def _dense_box_regression_loss(
         raise ValueError(f"Invalid dense box regression loss type '{box_reg_loss_type}'")
     return loss_box_reg
 
-
+@torch.jit.script
 def _smooth_l1_loss(
         smooth_l1_s,
         input: torch.Tensor,
