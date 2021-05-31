@@ -203,8 +203,6 @@ class SimpleTrainer(TrainerBase):
         """
         super().__init__()
 
-        self.logger = logging.getLogger(__name__)
-
         """
         We set the model to training mode in the trainer.
         However it's valid to train a model that's in eval mode.
@@ -217,8 +215,6 @@ class SimpleTrainer(TrainerBase):
         self.data_loader = data_loader
         self._data_loader_iter = iter(data_loader)
         self.optimizer = optimizer
-
-        self.grads = []
 
     def run_step(self):
         """
@@ -238,41 +234,6 @@ class SimpleTrainer(TrainerBase):
         loss_dict = self.model(data)
         losses = sum(loss_dict.values())
 
-        # """
-        # Check loss become nan
-        # """
-        # metrics_dict = {k: v.detach().cpu().item() for k, v in loss_dict.items()}
-        # metrics_dict["data_time"] = data_time
-        # all_metrics_dict = comm.gather(metrics_dict)
-        # if comm.is_main_process():
-        #     storage = get_event_storage()
-        #
-        #     # data_time among workers can have high variance. The actual latency
-        #     # caused by data_time is the maximum among workers.
-        #     data_time = np.max([x.pop("data_time") for x in all_metrics_dict])
-        #     storage.put_scalar("data_time", data_time)
-        #
-        #     # average the rest metrics
-        #     metrics_dict = {
-        #         k: np.mean([x[k] for x in all_metrics_dict]) for k in all_metrics_dict[0].keys()
-        #     }
-        #     total_losses_reduced = sum(metrics_dict.values())
-        #     if not np.isfinite(total_losses_reduced):
-        #         self.logger.warning(
-        #             f"Loss became infinite or NaN at iteration={self.iter}! skip this batch\n"
-        #             f"loss_dict = {metrics_dict}"
-        #         )
-        #         return
-
-        # current_gradient = []
-        # for group in self.optimizer.param_groups:
-        #     for p in group['params']:
-        #         if p.grad is not None:
-        #             current_gradient.append(p.grad.detach().to('cpu').numpy())
-        # if current_gradient:
-        #     self.grads.append(current_gradient)
-        # if len(self.grads) > 20:
-        #     self.grads = self.grads[1:]
         """ 
         If you need to accumulate gradients or do something similar, you can
         wrap the optimizer with your custom `zero_grad()` method.
@@ -320,12 +281,8 @@ class SimpleTrainer(TrainerBase):
             metrics_dict = {
                 k: np.mean([x[k] for x in all_metrics_dict]) for k in all_metrics_dict[0].keys()
             }
-            # self.logger.info(f"metrics_dict={metrics_dict}")
             total_losses_reduced = sum(metrics_dict.values())
             if not np.isfinite(total_losses_reduced):
-                self.logger.error("Not skipped step with loss=NaN")
-                for el in self.grads:
-                    self.logger.warning(f"{el}")
                 raise FloatingPointError(
                     f"Loss became infinite or NaN at iteration={self.iter}!\n"
                     f"loss_dict = {metrics_dict}"
