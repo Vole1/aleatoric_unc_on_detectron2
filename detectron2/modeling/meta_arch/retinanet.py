@@ -339,7 +339,8 @@ class RetinaNet(nn.Module):
         print(torch.any(torch.isnan(self.focal_s)), 'input0 of loss_cls')   #Nan
         print(torch.any(torch.isnan(cat(pred_logits, dim=1)[valid_mask])), 'input1 of loss_cls')   #Nan
         print(torch.any(torch.isnan(gt_labels_target)), 'input2 of loss_cls')
-        loss_cls = _focal_loss(
+        loss_cls = _focal_loss_softmax(
+            self.focal_s,
             cat(pred_logits, dim=1)[valid_mask],
             gt_labels_target.to(pred_logits[0].dtype),
             alpha=self.focal_loss_alpha,
