@@ -153,8 +153,8 @@ class RetinaNet(nn.Module):
         self.loss_normalizer_momentum = 0.9
 
         if self.training:
-            self.focal_s = torch.nn.Parameter(torch.zeros(1, dtype=torch.float32))
-            self.smooth_l1_s = torch.nn.Parameter(torch.ones(1, dtype=torch.float32))
+            self.focal_s = torch.nn.Parameter(torch.zeros(1, dtype=torch.float32)/2)
+            self.smooth_l1_s = torch.nn.Parameter(torch.ones(1, dtype=torch.float32)/2)
             self.register_parameter(name="focal_s", param=self.focal_s)
             self.register_parameter(name="smooth_l1_s", param=self.smooth_l1_s)
             np.set_printoptions(threshold=np.inf)
@@ -272,6 +272,11 @@ class RetinaNet(nn.Module):
             get_event_storage().put_scalar("smooth_l1_sigma", self.smooth_l1_s)
 
             gt_labels, gt_boxes = self.label_anchors(anchors, gt_instances)
+            print(any(torch.any(torch.isnan(b.tensor)) for b in anchors), 'input0 of losses')
+            print(any(torch.any(torch.isnan(l)) for l in pred_logits), 'input1 of losses')
+            print(any(torch.any(torch.isnan(l)) for l in gt_labels), 'input2 of losses')
+            print(any(torch.any(torch.isnan(l)) for l in pred_anchor_deltas), 'input3 of losses')
+            print(any(torch.any(torch.isnan(b)) for b in gt_boxes), 'input4 of losses')
             losses = self.losses(anchors, pred_logits, gt_labels, pred_anchor_deltas, gt_boxes)
 
             if self.vis_period > 0:
@@ -331,8 +336,10 @@ class RetinaNet(nn.Module):
         gt_labels_target = F.one_hot(gt_labels[valid_mask], num_classes=self.num_classes + 1)[
             :, :-1
         ]  # no loss for the last (background) class
+        print(torch.any(torch.isnan(self.focal_s)), 'input0 of loss_cls')   #Nan
+        print(torch.any(torch.isnan(cat(pred_logits, dim=1)[valid_mask])), 'input1 of loss_cls')   #Nan
+        print(torch.any(torch.isnan(gt_labels_target)), 'input2 of loss_cls')
         loss_cls = _focal_loss(
-            self.focal_s,
             cat(pred_logits, dim=1)[valid_mask],
             gt_labels_target.to(pred_logits[0].dtype),
             alpha=self.focal_loss_alpha,
@@ -340,6 +347,11 @@ class RetinaNet(nn.Module):
             reduction="sum",
         )
 
+        print(torch.any(torch.isnan(self.smooth_l1_s)), 'input0 of loss_reg_box')
+        print(any(torch.any(torch.isnan(b.tensor)) for b in anchors), 'input1 of loss_reg_box')
+        print(any(torch.any(torch.isnan(d)) for d in pred_anchor_deltas), 'input2 of loss_reg_box')   #Nan
+        print(any(torch.any(torch.isnan(b)) for b in gt_boxes), 'input3 of loss_reg_box ')
+        print(torch.any(torch.isnan(pos_mask)), 'input4 of loss_reg_box ')
         loss_box_reg = _dense_box_regression_loss(
             torch.clamp(self.smooth_l1_s, -50, 50),
             anchors,
@@ -622,7 +634,7 @@ class RetinaNetHead(nn.Module):
         return logits, bbox_reg
 
 @torch.jit.script
-def _focal_loss(focal_s, inputs: Tensor,
+def _focal_loss_sigmoid(focal_s, inputs: Tensor,
                 targets: Tensor, alpha: float = -1,
                 gamma: float = 2,
                 reduction: str = "none",
@@ -655,3 +667,28 @@ def _focal_loss(focal_s, inputs: Tensor,
     #                  f"focal_s_grad: {focal_s.grad.detach().to('cpu').numpy()}")
 
     return loss #+ torch.pow(focal_s, 2)
+
+#@torch.jit.script
+def _focal_loss_softmax(focal_s, inputs: Tensor,
+                targets: Tensor, alpha: float = -1,
+                gamma: float = 2,
+                reduction: str = "none",
+                ) -> torch.Tensor:
+    p = torch.softmax(inputs, 1)
+    ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none") * torch.exp(-focal_s) + focal_s / 2
+
+    p_t = p * targets + (1 - p) * (1 - targets)
+    # in tf version Natalia did this:
+    # loss = ce_loss * (1 - p_t * torch.exp(-1.5 * torch.pow(focal_s, 2))) ** gamma
+    # In Alexey thesis approximated verison was proposed:
+    loss = ce_loss * ((1 - p_t ** torch.exp(-focal_s) * torch.exp(-0.5 * focal_s)) ** gamma)
+
+    if alpha >= 0:
+        alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
+        loss = alpha_t * loss
+
+    if reduction == "mean":
+        loss = loss.mean()
+    elif reduction == "sum":
+        loss = loss.sum()
+    return loss

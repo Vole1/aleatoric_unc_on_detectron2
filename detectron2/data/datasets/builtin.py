@@ -44,6 +44,9 @@ _PREDEFINED_SPLITS_COCO["coco"] = {
     "coco_2017_train": ("coco/train2017", "coco/annotations/instances_train2017.json"),
     "coco_2017_val": ("coco/val2017", "coco/annotations/instances_val2017.json"),
     "coco_2017_test": ("coco/test2017", "coco/annotations/image_info_test2017.json"),
+    "coco_2017_train_al_unc": ("/mnt/tank/scratch/alapenok/datasets/coco/train2017", "/mnt/tank/scratch/alapenok/datasets/coco/annotations/instances_train2017.json"),
+    "coco_2017_test_al_unc": ("/mnt/tank/scratch/alapenok/datasets/coco/test2017", "/mnt/tank/scratch/alapenok/datasets/coco/annotations/image_info_test2017.json"),
+    "coco_2017_val_al_unc": ("/mnt/tank/scratch/alapenok/datasets/coco/val2017", "mnt/tank/scratch/alapenok/datasets/coco/annotations/instances_val2017.json"),
     "coco_2017_test-dev": ("coco/test2017", "coco/annotations/image_info_test-dev2017.json"),
     "coco_2017_val_100": ("coco/val2017", "coco/annotations/instances_val2017_100.json"),
 }
