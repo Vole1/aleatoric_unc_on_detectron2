@@ -255,7 +255,7 @@ def _dense_box_regression_loss(
     if box_reg_loss_type == "smooth_l1":
         gt_anchor_deltas = [box2box_transform.get_deltas(anchors, k) for k in gt_boxes]
         gt_anchor_deltas = torch.stack(gt_anchor_deltas)  # (N, R, 4)
-        loss_box_reg = _smooth_l1_loss(
+        loss_box_reg = _smooth_l1_loss_v3( #_original_smooth_l1_loss(
             smooth_l1_s,
             cat(pred_anchor_deltas, dim=1)[fg_mask],
             gt_anchor_deltas[fg_mask],
@@ -274,11 +274,11 @@ def _dense_box_regression_loss(
     return loss_box_reg
 
 
-def _smooth_l1_loss(
+def _original_smooth_l1_loss(
         smooth_l1_s,
         input: torch.Tensor,
         target: torch.Tensor,
-        beta: float,  # beta = 1/sigma^2
+        beta: float,  # beta = 1/beta^2
         reduction: str = "none"
 ) -> torch.Tensor:
 
@@ -295,7 +295,6 @@ def _smooth_l1_loss(
         factor = 1.0 / (4.0 * torch.exp(smooth_l1_s))
         loss = torch.where(cond,
                            factor * n ** 2 / beta + 0.5 * smooth_l1_s,
-
                            -1 / beta * torch.log(
                                1 - torch.erf(
                                    beta / torch.sqrt(2 * torch.exp(smooth_l1_s))
@@ -316,4 +315,101 @@ def _smooth_l1_loss(
     #     import logging
     #     logger = logging.getLogger(__name__)
     #     logger.debug(f"inputs: {input.detach().to('cpu').numpy()}, targets: {target.detach().to('cpu').numpy()}, smooth_l1_s: {smooth_l1_s.detach().to('cpu').numpy()}")
+    return loss
+
+@torch.jit.script
+def _smooth_l1_loss_v1(
+        smooth_l1_s,
+        input: torch.Tensor,
+        target: torch.Tensor,
+        beta: float,  # beta = 1/beta^2
+        reduction: str = "none"
+) -> torch.Tensor:
+    
+    if beta < 1e-5:
+        # if beta == 0, then torch.where will result in nan gradients when
+        # the chain rule is applied due to pytorch implementation details
+        # (the False branch "0.5 * n ** 2 / 0" has an incoming gradient of
+        # zeros, rather than "no gradient"). To avoid this issue, we define
+        # small values of beta to be exactly l1 loss.
+        loss = torch.abs(input - target) / (2 * torch.exp(smooth_l1_s)) + 0.5 * smooth_l1_s
+    else:
+        n = torch.abs(input - target)
+        cond = n < beta
+        D = torch.log(torch.exp(smooth_l1_s / 2) * torch.sqrt(torch.tensor(2 * math.pi)) * torch.erf(
+                        beta / torch.sqrt(torch.tensor(2)) / torch.exp(smooth_l1_s/2)
+                    )+ 2 * torch.exp(
+                        beta / (2 * torch.exp(smooth_l1_s))
+                    ) / beta * torch.exp(smooth_l1_s)
+                    )
+        loss = torch.where(cond, 
+                        n ** 2 / (2 * torch.exp(smooth_l1_s)) + torch.log(D),
+                        beta / torch.exp(smooth_l1_s) * (n - beta) + beta **2 / (2 * torch.exp(smooth_l1_s)) + torch.log(D))
+    
+    if reduction == "mean":
+        loss = loss.mean() if loss.numel() > 0 else 0.0 * loss.sum()
+    elif reduction == "sum":
+        loss = loss.sum()
+    return loss
+
+@torch.jit.script
+def _smooth_l1_loss_v2(
+        smooth_l1_s,
+        input: torch.Tensor,
+        target: torch.Tensor,
+        beta: float,  # beta = 1/beta^2
+        k: float = 0.5, # transition sharpness
+        reduction: str = "none"
+) -> torch.Tensor:
+    
+    if beta < 1e-5:
+        # if beta == 0, then torch.where will result in nan gradients when
+        # the chain rule is applied due to pytorch implementation details
+        # (the False branch "0.5 * n ** 2 / 0" has an incoming gradient of
+        # zeros, rather than "no gradient"). To avoid this issue, we define
+        # small values of beta to be exactly l1 loss.
+        loss = torch.abs(input - target) / (2 * torch.exp(smooth_l1_s)) + 0.5 * smooth_l1_s
+    else:
+        n = torch.abs(input - target)
+        w = 1 / (1 + torch.exp(k * (n - beta)))
+        
+        loss = - torch.log(w / (torch.sqrt(
+                               2 * math.pi * torch.exp(smooth_l1_s / 2))
+                           ) * torch.exp(- n ** 2 / (2 * torch.exp(smooth_l1_s))) +
+                           (1 - w) / (2  * beta) * torch.exp(-n / beta))
+
+
+    if reduction == "mean":
+        loss = loss.mean() if loss.numel() > 0 else 0.0 * loss.sum()
+    elif reduction == "sum":
+        loss = loss.sum()
+    return loss
+
+
+@torch.jit.script
+def _smooth_l1_loss_v3(
+        smooth_l1_s,
+        input: torch.Tensor,
+        target: torch.Tensor,
+        beta: float,  # beta = 1/sigma^2
+        reduction: str = "none"
+) -> torch.Tensor:
+    if beta < 1e-5:
+        # if beta == 0, then torch.where will result in nan gradients when
+        # the chain rule is applied due to pytorch implementation details
+        # (the False branch "0.5 * n ** 2 / 0" has an incoming gradient of
+        # zeros, rather than "no gradient"). To avoid this issue, we define
+        # small values of beta to be exactly l1 loss.
+        loss = torch.abs(input - target) / (2 * torch.exp(smooth_l1_s)) + 0.5 * smooth_l1_s
+    else:
+        n = torch.abs(input - target)
+        cond = n < beta
+        loss = torch.where(cond,
+                           n ** 2 / (2 * torch.exp(smooth_l1_s)) + 0.5 * smooth_l1_s,
+                           beta / torch.exp(smooth_l1_s) * n - beta ** 2 / (2 * torch.exp(smooth_l1_s)) + smooth_l1_s / 2)
+
+    if reduction == "mean":
+        loss = loss.mean() if loss.numel() > 0 else 0.0 * loss.sum()
+    elif reduction == "sum":
+        loss = loss.sum()
     return loss
